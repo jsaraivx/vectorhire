@@ -1,6 +1,6 @@
 # VectorHire (AI-Powered ATS Pipeline)
 
-> **Status:** Em desenvolvimento ativo
+> **Status:** Funcional (MVP Completo) - Fase 3 Finalizada
 
 Um sistema de *Applicant Tracking System* (ATS) focado na análise semântica de currículos. Este projeto utiliza técnicas avançadas de **Data Engineering** e **AI Engineering (RAG)** para extrair, vetorizar e cruzar perfis de candidatos com descrições de vagas, utilizando Modelos de Linguagem (LLMs) para gerar justificativas de match.
 
@@ -15,8 +15,8 @@ O projeto é dividido em um pipeline de ingestão assíncrona e um motor de deci
 - **ORM:** SQLAlchemy
 - **Orquestração (Planejado):** Apache Airflow & Docker
 - **Modelos de IA:**
-  - *Embeddings:* Sentence Transformers (Local) / OpenAI API
-  - *Raciocínio:* Modelos locais via Ollama / OpenAI GPT-4o-mini
+  - *Embeddings:* Sentence Transformers (`all-MiniLM-L6-v2` Local)
+  - *Raciocínio:* Google Gemini (2.5 Flash) via API
 
 
 
@@ -34,10 +34,10 @@ O projeto é dividido em um pipeline de ingestão assíncrona e um motor de deci
 - [x] Schemas SQLAlchemy para persistência de embeddings e metadados (Camada Silver).
 
 ### Fase 3: Motor de Matching (Retrieval & LLM)
-- [ ] Vetorização dinâmica da descrição da vaga (Job Description).
-- [ ] Busca de similaridade (Top K) no PostgreSQL com pgvector.
-- [ ] Agente LLM para cruzar requisitos obrigatórios vs. habilidades do candidato.
-- [ ] Geração de saída estruturada (Aceito/Recusado + Justificativa detalhada).
+- [x] Vetorização dinâmica da descrição da vaga (Job Description).
+- [x] Busca de similaridade (Top K) no PostgreSQL com pgvector.
+- [x] Agente LLM para cruzar requisitos obrigatórios vs. habilidades do candidato (Gemini 2.5 Flash).
+- [x] Geração de saída estruturada (Aceito/Recusado + Justificativa detalhada com Pydantic).
 
 ### Fase 4: Orquestração e Escalabilidade
 - [ ] Containerização da aplicação com Docker.
@@ -48,4 +48,7 @@ O projeto é dividido em um pipeline de ingestão assíncrona e um motor de deci
 1. Clone este repositório.
 2. Crie um ambiente virtual: `python -m venv venv`
 3. Instale as dependências: `pip install -r requirements.txt`
-4. Crie um arquivo `.env` na raiz do projeto (veja `.env.example`).
+4. Crie um arquivo `.env` na raiz do projeto configurando suas credenciais de banco e a `GEMINI_API_KEY` (veja `.env.example`).
+5. Suba o banco de dados vetorial PostgreSQL com a extensão pgvector: `docker-compose up -d`
+6. Edite o final do arquivo `main.py` para escolher qual parte testar e execute: `python main.py`
+    - Você pode testar a ingestão dos PDFs ou testar diretamente o motor de RAG simulando as posições nas vagas alvo.
