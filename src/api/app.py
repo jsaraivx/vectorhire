@@ -45,9 +45,16 @@ async def match_candidates(
 
     arquivos_salvos = []
 
-    # Passo 2: O Loop de Salvamento
+    # persist on disk
     for file in files:
+        caminho_completo = os.path.join(RAW_DIR, file.filename)
 
+        with open(
+            caminho_completo,
+            "wb"
+        ) as f:
+            shutil.copyfileobj(file.file, f)
+            
         arquivos_salvos.append(file.filename)
 
     return {
