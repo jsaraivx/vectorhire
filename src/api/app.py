@@ -1,13 +1,16 @@
+import os
+import json
+import shutil
+import asyncio
+from fastapi import FastAPI, File, UploadFile, Form
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
 from src.extraction.pdf_extractor import PDFExtractor
 from src.processing.text_chunker import chunk_text 
 from src.vector_db.embedding_service import EmbeddingService
 from src.vector_db.repository import VectorRepository
 from src.llm.matching_service import MatchingService
-import src.vector_db.database 
-from fastapi import FastAPI, File, UploadFile, Form
-from pydantic import BaseModel
-import os, json, shutil
-
 
 app = FastAPI(
     title="VectorHire ATS API",
@@ -15,8 +18,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-from fastapi.middleware.cors import CORSMiddleware
-
+# Configuração de CORS (Permite que o Frontend HTML se comunique com esta API)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Em produção, trocar '*' pela URL real do frontend
@@ -25,16 +27,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class JobRequest(BaseModel):
-    job_description: str
-
 @app.get("/health")
 def health_check():
     return {
         "status": "online", 
         "message": "Motor RAG respirando."
-        }
-
+    }
 
 @app.post("/api/v1/match")
 async def match_candidates(
@@ -43,7 +41,7 @@ async def match_candidates(
 ):
     """
     Recebe a vaga via texto e uma lista de currículos em PDF.
-    Salva os PDFs no disco e retorna sucesso.
+    Salva os PDFs no disco e executa o pipeline de IA.
     """
     RAW_DIR = "data/raw"
     os.makedirs(RAW_DIR, exist_ok=True) 
@@ -64,7 +62,6 @@ async def match_candidates(
 
     try:
         print("\n[1/3] Iniciando Pipeline de Ingestão via API...")
-        
         
         # 1. Extração (Lê de data/raw e joga para data/processed)
         extractor = PDFExtractor()
@@ -91,7 +88,7 @@ async def match_candidates(
         
         resultados_ia = matcher.evaluate_candidates_for_job(job_description) 
 
-        # NOVO: Converte as strings do Gemini em objetos reais
+        # Converte as strings do Gemini em dicionários reais do Python
         resultados_limpos = {}
         for candidato, resposta_texto in resultados_ia.items():
             try:
@@ -104,9 +101,9 @@ async def match_candidates(
         return {
             "status": "sucesso",
             "vaga_analisada": job_description,
-            "resultados": resultados_limpos # Passa o dicionário limpo aqui!
+            "resultados": resultados_limpos
         }
     
     except Exception as e:
-        # Se algo der errado no pipeline, avisamos o frontend em vez de quebrar a tela
+        print(f"❌ Erro no pipeline: {str(e)}")
         return {"status": "erro", "detalhe": str(e)}
