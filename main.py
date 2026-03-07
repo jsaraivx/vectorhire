@@ -5,31 +5,30 @@ from src.processing.text_chunker import chunk_text
 from src.vector_db.embedding_service import EmbeddingService
 from src.vector_db.repository import VectorRepository
 
-# Já vamos importar o serviço que você vai construir a seguir
 from src.llm.matching_service import MatchingService
 
 def run_ingestion(extract_pdfs: bool = False):
     """
-    Fase 1 e 2: Extrai PDFs, fatia, gera vetores e salva no banco (Postgres).
+    Phase 1 and 2: Extracts PDFs, chunks text, generates vectors and saves to database (Postgres).
     """
-    print("=== INICIANDO PIPELINE DE INGESTÃO ===")
+    print("=== STARTING INGESTION PIPELINE ===")
     
     if extract_pdfs:
-        print("[1/4] Extraindo PDFs...")
+        print("[1/4] Extracting PDFs...")
         extractor = PDFExtractor()
         count = extractor.process_all()
-        print(f"      Extraídos {count} PDF(s).")
+        print(f"      Extracted {count} PDF(s).")
     
     processed_folder = 'data/processed'
     processed_files = [f for f in os.listdir(processed_folder) if f.endswith('.txt')]
     
     if not processed_files:
-        print(f"Nenhum arquivo processado encontrado em {processed_folder}")
+        print(f"No processed files found in {processed_folder}")
         return
     
     refined_chunks = []
     
-    print("[2/4] Fatiando os textos (Chunking)...")
+    print("[2/4] Chunking texts...")
     for file_name in processed_files:
         file_path = os.path.join(processed_folder, file_name)
         try:
@@ -38,29 +37,29 @@ def run_ingestion(extract_pdfs: bool = False):
             chunks = chunk_text(resume_text, file_name)
             refined_chunks.extend(chunks)
         except Exception as e:
-            print(f"      Erro ao processar {file_name}: {e}")
+            print(f"      Error processing {file_name}: {e}")
             
-    print(f"      Total de chunks gerados: {len(refined_chunks)}")
+    print(f"      Total chunks generated: {len(refined_chunks)}")
     
-    print("[3/4] Gerando Embeddings Locais (all-MiniLM-L6-v2)...")
+    print("[3/4] Generating Local Embeddings (all-MiniLM-L6-v2)...")
     emb = EmbeddingService()
     payload_data = emb.generate_embeddings(refined_chunks)
 
-    print("[4/4] Salvando no banco de dados vetorial (pgvector)...")
+    print("[4/4] Saving to vector database (pgvector)...")
     repo = VectorRepository()
     repo.upsert_chunks(payload_data)
     
-    print("=== INGESTÃO CONCLUÍDA COM SUCESSO ===\n")
+    print("=== INGESTION COMPLETED SUCCESSFULLY ===\n")
 
 
 def test_matching_engine():
     """
-    Fase 3: Testa o motor de busca e o raciocínio do LLM.
+    Phase 3: Tests the search engine and LLM reasoning.
     """
-    print("=== INICIANDO MOTOR DE MATCHING (RAG) ===")
+    print("=== STARTING MATCHING ENGINE (RAG) ===")
     
-    # Uma descrição de vaga de teste focada em Engenharia de Dados
-    vaga_teste = """
+    # A test job description focused on Data Engineering
+    test_job = """
     Vaga: Engenheiro de Dados Pleno
     Requisitos Obrigatórios:
     - Sólida experiência com construção de pipelines ETL/ELT.
@@ -70,32 +69,32 @@ def test_matching_engine():
     - Desejável experiência com processamento em streaming (Kafka).
     """
     
-    print(f"📋 Vaga alvo:\n{vaga_teste}")
+    print(f"📋 Target Position:\n{test_job}")
     
     matcher = MatchingService()
     
-    # IMPORTANTE: Garanta que o método no seu matching_service.py se chama avaliar_candidato_para_vaga (no plural)
-    resultados = matcher.avaliar_candidato_para_vaga(vaga_teste)
+    # IMPORTANT: Make sure the method in your matching_service.py is called evaluate_candidates_for_job
+    results = matcher.evaluate_candidates_for_job(test_job)
     
-    print("\nVereditos do Recrutador Virtual (LLM):\n")
+    print("\nVerdicts from Virtual Recruiter (LLM):\n")
     
-    # Agora iteramos sobre o dicionário retornado { "nome_do_arquivo.txt": "string_json_do_llm" }
-    for candidato, resultado_json in resultados.items():
-        print(f"--- 👤 Candidato: {candidato} ---")
+    # Now we iterate over the returned dictionary { "filename.txt": "string_json_from_llm" }
+    for candidate, result_json in results.items():
+        print(f"--- 👤 Candidate: {candidate} ---")
         try:
-            # Transforma a string do LLM em um objeto Python e imprime formatado
-            parsed_json = json.loads(resultado_json)
+            # Transform the LLM string into a Python object and print formatted
+            parsed_json = json.loads(result_json)
             print(json.dumps(parsed_json, indent=4, ensure_ascii=False))
         except json.JSONDecodeError:
-            # Fallback caso a IA tenha falhado em retornar um JSON perfeito
-            print(resultado_json)
+            # Fallback if the AI failed to return perfect JSON
+            print(result_json)
         print("\n" + "="*50 + "\n")
 
 if __name__ == "__main__":
-    # COMENTE OU DESCOMENTE O QUE QUISER TESTAR
+    # COMMENT OR UNCOMMENT WHAT YOU WANT TO TEST
     
-    # 1. Se precisar reprocessar os currículos, descomente a linha abaixo:
+    # 1. If you need to reprocess resumes, uncomment the line below:
     run_ingestion(extract_pdfs=False) 
     
-    # 2. Para testar a Missão 7 (O Cérebro RAG), deixe esta linha ativa:
+    # 2. To test Phase 3 (The RAG Brain), keep this line active:
     test_matching_engine()
