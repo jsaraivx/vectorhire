@@ -22,17 +22,16 @@ def chunk_text(raw_text: str, file_name: str) -> List[ResumeChunk]:
         if not line_stripped:
             continue
 
-        # WHEN IS UPPER AND < 45 Chars.
         if line_stripped.isupper() and len(line_stripped) < 45:
             
             if current_content:
-                texto_junto = " ".join(current_content)
+                combined_text = " ".join(current_content)
                 
                 # Validated Chunk
                 chunk = ResumeChunk(
                     file_name=file_name,
                     chunk_id=f"{file_name[:-4]}_{current_section.replace(' ', '_')}",
-                    text_content=f"{current_section}:\n{texto_junto}"
+                    text_content=f"{current_section}:\n{combined_text}"
                 )
                 valid_chunks.append(chunk)
             
@@ -43,11 +42,11 @@ def chunk_text(raw_text: str, file_name: str) -> List[ResumeChunk]:
             current_content.append(line_stripped)
 
     if current_content:
-        texto_junto = " ".join(current_content)
+        combined_text = " ".join(current_content)
         chunk = ResumeChunk(
             file_name=file_name,
             chunk_id=f"{file_name[:-4]}_{current_section.replace(' ', '_')}",
-            text_content=f"{current_section}:\n{texto_junto}"
+            text_content=f"{current_section}:\n{combined_text}"
         )
         valid_chunks.append(chunk)
 
