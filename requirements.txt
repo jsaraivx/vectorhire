@@ -6,3 +6,5 @@ python-dotenv==1.2.2
 SQLAlchemy==2.0.48
 sentence-transformers==5.2.3
 google-generativeai==0.8.6
+fastAPI
+python-multipart

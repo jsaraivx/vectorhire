@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VectorHire ATS - Protótipo Web</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .form-group { margin-bottom: 15px; }
+        textarea, input[type="file"] { width: 100%; padding: 8px; margin-top: 5px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; }
+        button:disabled { background-color: #cccccc; }
+        pre { background-color: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+
+    <h1>VectorHire - Portal do Recrutador</h1>
+    <p>Faça o upload dos currículos e cole a descrição da vaga para análise semântica.</p>
+
+    <form id="ats-form">
+        <div class="form-group">
+            <label for="job_description"><strong>Descrição da Vaga:</strong></label>
+            <textarea id="job_description" rows="8" required placeholder="Cole os requisitos da vaga aqui..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="resume_files"><strong>Currículos (PDFs):</strong></label>
+            <input type="file" id="resume_files" multiple accept=".pdf" required>
+        </div>
+
+        <button type="submit" id="submit-btn">Analisar Candidatos</button>
+    </form>
+
+    <h3 style="margin-top: 30px;">Resultado da IA:</h3>
+    <pre id="output-box">Aguardando envio...</pre>
+
+    <script>
+        document.getElementById('ats-form').addEventListener('submit', async function(event) {
+            event.preventDefault(); // Impede o navegador de recarregar a página
+
+            const btn = document.getElementById('submit-btn');
+            const outputBox = document.getElementById('output-box');
+            
+            btn.disabled = true;
+            btn.textContent = 'Processando...';
+            outputBox.textContent = 'Enviando arquivos para o servidor... (Isso pode demorar um pouco)';
+
+            // Montando o payload Multipart
+            const formData = new FormData();
+            formData.append('job_description', document.getElementById('job_description').value);
+            
+            const fileInput = document.getElementById('resume_files');
+            for (let i = 0; i < fileInput.files.length; i++) {
+                formData.append('files', fileInput.files[i]);
+            }
+
+            try {
+                // Dispara a requisição para o FastAPI local
+                const response = await fetch('http://127.0.0.1:8000/api/v1/match', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                // Formata o JSON retornado para ficar legível na tela
+                outputBox.textContent = JSON.stringify(data, null, 4);
+
+            } catch (error) {
+                outputBox.textContent = 'Erro ao conectar com a API: ' + error.message;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Analisar Candidatos';
+            }
+        });
+    </script>
+</body>
+</html>
