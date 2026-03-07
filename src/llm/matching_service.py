@@ -13,6 +13,10 @@ class CandidateEvaluation(BaseModel):
     score_fit: int = Field(description="Nota de 0 a 100 baseada no match entre currículo e vaga")
     decision: str = Field(description="DEVE SER EXATAMENTE: 'Aprovado para Entrevista' ou 'Reprovado'")
     technical_justification: str = Field(description="Explicação detalhada do porquê da nota, citando tecnologias do currículo.")
+    github_url: str = Field(description="URL do perfil GitHub do candidato. Retorne string vazia '' se não encontrada.")
+    linkedin_url: str = Field(description="URL do perfil LinkedIn do candidato. Retorne string vazia '' se não encontrada.")
+    email: str = Field(description="E-mail de contato do candidato. Retorne string vazia '' se não encontrado.")
+    phone: str = Field(description="Telefone de contato do candidato. Retorne string vazia '' se não encontrado.")
 
 
 class MatchingService:
@@ -70,6 +74,15 @@ class MatchingService:
             Você é um Tech Recruiter Sênior super rigoroso.
             Sua missão é avaliar se o candidato atende aos requisitos da vaga abaixo, 
             baseando-se ÚNICA E EXCLUSIVAMENTE nos fragmentos de currículo fornecidos.
+            
+            Além da avaliação técnica, EXTRAIA as seguintes informações de contato do candidato
+            se estiverem presentes nos fragmentos:
+            - URL do GitHub (ex: github.com/usuario)
+            - URL do LinkedIn (ex: linkedin.com/in/usuario)
+            - E-mail de contato
+            - Telefone de contato
+            
+            Se alguma informação de contato NÃO for encontrada, retorne uma string vazia '' para o campo correspondente.
             
             DESCRIÇÃO DA VAGA (Requisitos):
             {job_description}
