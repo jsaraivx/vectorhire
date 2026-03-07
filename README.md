@@ -11,7 +11,8 @@ O projeto é dividido em um pipeline de ingestão assíncrona e um motor de deci
 - **Linguagem Core:** Python 3.10+
 - **Extração de Dados:** PyMuPDF (Processamento de layouts complexos de PDFs)
 - **Validação e Parsing:** Pydantic (Structured Outputs)
-- **Armazenamento Vetorial:** Pinecone (Vector Database para similaridade de cosseno)
+- **Armazenamento Vetorial:** PostgreSQL + pgvector (Vector Database para similaridade de cosseno)
+- **ORM:** SQLAlchemy
 - **Orquestração (Planejado):** Apache Airflow & Docker
 - **Modelos de IA:**
   - *Embeddings:* Sentence Transformers (Local) / OpenAI API
@@ -29,12 +30,12 @@ O projeto é dividido em um pipeline de ingestão assíncrona e um motor de deci
 
 ### Fase 2: Banco Vetorial e Embeddings (AI Engineering)
 - [x] Geração de vetores matemáticos para cada chunk de texto.
-- [ ] Configuração do Pinecone Index (Serverless).
-- [ ] Rotina de `upsert` no Pinecone associando vetores aos metadados (Camada Silver).
+- [x] Configuração do PostgreSQL com extensão pgvector.
+- [x] Schemas SQLAlchemy para persistência de embeddings e metadados (Camada Silver).
 
 ### Fase 3: Motor de Matching (Retrieval & LLM)
 - [ ] Vetorização dinâmica da descrição da vaga (Job Description).
-- [ ] Busca de similaridade (Top K) no Pinecone.
+- [ ] Busca de similaridade (Top K) no PostgreSQL com pgvector.
 - [ ] Agente LLM para cruzar requisitos obrigatórios vs. habilidades do candidato.
 - [ ] Geração de saída estruturada (Aceito/Recusado + Justificativa detalhada).
 
