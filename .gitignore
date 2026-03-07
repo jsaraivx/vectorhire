@@ -38,3 +38,4 @@ dist/
 # Sensitive data
 data/**/*.pdf
 data/**/*.txt
+.env
