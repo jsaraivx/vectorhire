@@ -28,7 +28,7 @@ O projeto é dividido em um pipeline de ingestão assíncrona e um motor de deci
 - [x] Validação de metadados usando `Pydantic` schemas.
 
 ### Fase 2: Banco Vetorial e Embeddings (AI Engineering)
-- [ ] Geração de vetores matemáticos para cada chunk de texto.
+- [x] Geração de vetores matemáticos para cada chunk de texto.
 - [ ] Configuração do Pinecone Index (Serverless).
 - [ ] Rotina de `upsert` no Pinecone associando vetores aos metadados (Camada Silver).
 
