@@ -39,3 +39,15 @@ class VectorRepository:
                 ResumeChunkModel.embedding.cosine_distance(query_embedding)
             ).limit(limit).all()
             return results
+
+    def get_chunk_file_by_name(self, file_name: str) -> str: 
+        """
+        Search all chunks for a single resume, with no
+        vectorized similarity.
+        """
+        
+        with self.session_factory() as session:
+            result = session.query(ResumeChunkModel).filter(
+                ResumeChunkModel.file_name==file_name
+            ).all()
+            return result
