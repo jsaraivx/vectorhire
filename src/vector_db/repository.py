@@ -2,7 +2,7 @@ from sqlalchemy.orm import sessionmaker
 from typing import List, Dict, Any
 
 
-from database import engine, ResumeChunkModel
+from .database import engine, ResumeChunkModel
 
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
