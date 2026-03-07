@@ -1,7 +1,12 @@
+from src.extraction.pdf_extractor import PDFExtractor
+from src.processing.text_chunker import chunk_text 
+from src.vector_db.embedding_service import EmbeddingService
+from src.vector_db.repository import VectorRepository
+from src.llm.matching_service import MatchingService
+import src.vector_db.database 
 from fastapi import FastAPI, File, UploadFile, Form
 from pydantic import BaseModel
-import os
-import shutil
+import os, json, shutil
 
 
 app = FastAPI(
@@ -57,8 +62,51 @@ async def match_candidates(
             
         arquivos_salvos.append(file.filename)
 
-    return {
-        "mensagem": "Arquivos recebidos com sucesso",
-        "vaga": job_description,
-        "curriculos_salvos": arquivos_salvos
-    }
+    try:
+        print("\n[1/3] Iniciando Pipeline de Ingestão via API...")
+        
+        
+        # 1. Extração (Lê de data/raw e joga para data/processed)
+        extractor = PDFExtractor()
+        extractor.process_all()
+        
+        # 2. Chunking (Fatiamento)
+        processed_files = [f for f in os.listdir('data/processed') if f.endswith('.txt')]
+        refined_chunks = []
+        for file_name in processed_files:
+            file_path = os.path.join('data/processed', file_name)
+            with open(file_path, 'r', encoding='utf-8') as f:
+                resume_text = f.read()
+            refined_chunks.extend(chunk_text(resume_text, file_name))
+                
+        # 3. Embeddings e Banco Vetorial
+        emb = EmbeddingService()
+        payload_data = emb.generate_embeddings(refined_chunks)
+        
+        repo = VectorRepository()
+        repo.upsert_chunks(payload_data)
+
+        print("🧠 [2/3] Acionando o Motor RAG (Gemini)...")
+        matcher = MatchingService()
+        
+        resultados_ia = matcher.evaluate_candidates_for_job(job_description) 
+
+        # NOVO: Converte as strings do Gemini em objetos reais
+        resultados_limpos = {}
+        for candidato, resposta_texto in resultados_ia.items():
+            try:
+                resultados_limpos[candidato] = json.loads(resposta_texto)
+            except json.JSONDecodeError:
+                resultados_limpos[candidato] = {"erro": "Falha ao ler o veredito da IA", "texto_bruto": resposta_texto}
+
+        print("[3/3] Devolvendo resultados para o Frontend!")
+        
+        return {
+            "status": "sucesso",
+            "vaga_analisada": job_description,
+            "resultados": resultados_limpos # Passa o dicionário limpo aqui!
+        }
+    
+    except Exception as e:
+        # Se algo der errado no pipeline, avisamos o frontend em vez de quebrar a tela
+        return {"status": "erro", "detalhe": str(e)}
