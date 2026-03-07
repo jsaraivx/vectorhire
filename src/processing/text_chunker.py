@@ -1,5 +1,5 @@
 from typing import List
-from schemas import ResumeChunk
+from .schemas import ResumeChunk
 
 
 def chunk_text(raw_text: str, file_name: str) -> List[ResumeChunk]:
