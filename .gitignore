@@ -1,0 +1,40 @@
+# Byte-code files
+*.pyc
+__pycache__/
+*.whl
+*.egg
+*.egg-info/
+.pytest_cache/
+
+# Virtual environment
+.venv/
+venv/*
+venv/
+env/
+ENV/
+bin/
+lib/
+include/
+
+# IDE specific files
+.idea/  # e.g., PyCharm
+.vscode/ # VS Code (uncomment if you want to ignore the whole folder)
+
+# Editor backup files and miscellaneous
+*~
+*.bak
+*.swp
+.DS_Store # macOS specific
+
+# Development and testing
+.coverage
+.ruff_cache/ # Ruff linter cache
+build/
+dist/
+
+# Notebook checkpoints
+.ipynb_checkpoints
+
+# Sensitive data
+data/**/*.pdf
+data/**/*.txt
