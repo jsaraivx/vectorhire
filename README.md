@@ -24,8 +24,8 @@ O projeto é dividido em um pipeline de ingestão assíncrona e um motor de deci
 ### Fase 1: Fundação de Dados (Data Engineering)
 - [x] Configuração do ambiente e estrutura de diretórios (`src/`, `data/`).
 - [x] Motor de extração de texto bruto de PDFs de currículos (Camada Bronze).
-- [ ] Implementação de chunking de texto focado na semântica do currículo.
-- [ ] Validação de metadados usando `Pydantic` schemas.
+- [x] Implementação de chunking de texto focado na semântica do currículo.
+- [x] Validação de metadados usando `Pydantic` schemas.
 
 ### Fase 2: Banco Vetorial e Embeddings (AI Engineering)
 - [ ] Geração de vetores matemáticos para cada chunk de texto.
