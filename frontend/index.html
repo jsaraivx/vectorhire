@@ -266,6 +266,32 @@
             cursor: not-allowed;
         }
 
+        .btn-secondary {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            width: 100%;
+            padding: 0.875rem 1.5rem;
+            margin-top: 0.75rem;
+            background-color: transparent;
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--bg-surface);
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+
         /* Spinner nativo minimalista */
         .spinner {
             width: 18px;
@@ -490,8 +516,17 @@
                 <div class="selected-files" id="selected-files-list"></div>
             </div>
 
-            <button type="submit" id="submit-btn">
+            <button type="submit" id="submit-btn" disabled>
                 <span>Analisar Candidatos</span>
+            </button>
+            <button type="button" id="clear-btn" class="btn-secondary" style="display: none;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"></path>
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                </svg>
+                Limpar Memória / Nova Análise
             </button>
         </form>
 
@@ -499,6 +534,8 @@
     </div>
 
     <script>
+        let isProcessing = false;
+
         const fileInput = document.getElementById('resume_files');
         const fileList = document.getElementById('selected-files-list');
         const dropZone = document.getElementById('drop-zone');
@@ -530,9 +567,25 @@
 
         fileInput.addEventListener('change', updateFileList);
 
+        function checkFormValidity() {
+            const btn = document.getElementById('submit-btn');
+            const jobDesc = document.getElementById('job_description').value.trim();
+            const hasFiles = fileInput.files.length > 0;
+
+            if (jobDesc && hasFiles) {
+                btn.disabled = false;
+            } else {
+                btn.disabled = true;
+            }
+        }
+
+        document.getElementById('job_description').addEventListener('input', checkFormValidity);
+
         function updateFileList() {
             fileList.innerHTML = '';
             const files = Array.from(fileInput.files);
+
+            checkFormValidity();
 
             if (files.length === 0) return;
 
@@ -554,6 +607,8 @@
         // Submissão do Formulário
         document.getElementById('ats-form').addEventListener('submit', async function (event) {
             event.preventDefault();
+
+            isProcessing = true;
 
             const btn = document.getElementById('submit-btn');
             const resultsContainer = document.getElementById('results-container');
@@ -588,72 +643,63 @@
                     throw new Error(`Erro de rede ou backend falhou (${response.status})`);
                 }
 
-                const data = await response.json();
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let buffer = '';
 
-                resultsContainer.innerHTML = '<div class="results-header">Relatórios da Triagem</div>';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
 
-                let delayIndex = 0;
+                    buffer += decoder.decode(value, { stream: true });
 
-                for (const [fileName, avaliacao] of Object.entries(data.resultados)) {
-                    const isApproved = String(avaliacao.decision).toLowerCase().includes('aprovado');
-                    const cardClass = isApproved ? 'approved' : 'rejected';
+                    let boundary = buffer.indexOf('\n\n');
+                    while (boundary !== -1) {
+                        const message = buffer.slice(0, boundary);
+                        buffer = buffer.slice(boundary + 2);
 
-                    // Tratamento seguro caso score_fit não seja numero ou venha quebrado
-                    const fitScore = parseFloat(avaliacao.score_fit) || 0;
-                    const scoreClass = fitScore >= 70 ? 'high' : 'low';
+                        const lines = message.split('\n');
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                const dataStr = line.substring(6).trim();
+                                if (dataStr) {
+                                    const parsedEvent = JSON.parse(dataStr);
 
-                    const iconSVG = isApproved
-                        ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--success)"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>'
-                        : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--danger)"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+                                    if (parsedEvent.status === 'info' || parsedEvent.status === 'progress') {
+                                        document.querySelector('.status-message').innerText = parsedEvent.message;
+                                    } else if (parsedEvent.status === 'done') {
+                                        // Salvar no LocalStorage
+                                        localStorage.setItem('ats_job_description', document.getElementById('job_description').value);
+                                        localStorage.setItem('ats_results', JSON.stringify(parsedEvent.resultados));
 
-                    // Monta links de contato condicionalmente
-                    let contactLinks = '';
-                    if (avaliacao.github_url) {
-                        contactLinks += `<a href="${avaliacao.github_url}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>GitHub</a>`;
+                                        renderResults(parsedEvent.resultados);
+                                    } else if (parsedEvent.status === 'erro') {
+                                        if (parsedEvent.is_quota) {
+                                            const resultsContainer = document.getElementById('results-container');
+                                            resultsContainer.innerHTML = `
+                                                <div class="card rejected" style="border-color: #f59e0b; background: linear-gradient(to bottom right, rgba(245, 158, 11, 0.05), transparent);">
+                                                    <div class="card-section">
+                                                        <label style="color: #f59e0b; display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem;">
+                                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+                                                            Limite da API Atingido (Quota)
+                                                        </label>
+                                                        <p style="margin-top: 0.5rem;">O limite gratuito da API do Google Gemini (Free Tier) foi excedido ou as requisições foram enviadas muito rapidamente.</p>
+                                                        <p style="margin-top: 0.5rem; font-weight: 500; color: var(--text-primary);">Aguarde cerca de 1 minuto antes de tentar analisar novamente.</p>
+                                                        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem; word-break: break-all;">Detalhes Técnicos: ${parsedEvent.message}</p>
+                                                    </div>
+                                                </div>`;
+                                            document.getElementById('clear-btn').style.display = 'flex';
+                                            document.getElementById('submit-btn').style.display = 'none';
+                                            return;
+                                        } else {
+                                            throw new Error(parsedEvent.message);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        boundary = buffer.indexOf('\n\n');
                     }
-                    if (avaliacao.linkedin_url) {
-                        contactLinks += `<a href="${avaliacao.linkedin_url}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>LinkedIn</a>`;
-                    }
-                    if (avaliacao.email) {
-                        contactLinks += `<a href="mailto:${avaliacao.email}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>${avaliacao.email}</a>`;
-                    }
-                    if (avaliacao.phone) {
-                        contactLinks += `<a href="tel:${avaliacao.phone}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${avaliacao.phone}</a>`;
-                    }
-
-                    const contactSection = contactLinks
-                        ? `<div class="card-links">${contactLinks}</div>`
-                        : '';
-
-                    const cardHTML = `
-                        <div class="card ${cardClass}" style="animation-delay: ${delayIndex * 0.1}s">
-                            <div class="card-top">
-                                <span class="card-title">${fileName}</span>
-                                <span class="badge ${scoreClass}">Match: ${fitScore}%</span>
-                            </div>
-                            
-                            <div class="card-section">
-                                <label>Veredito da IA</label>
-                                <div class="verdict-box">
-                                    ${iconSVG}
-                                    ${avaliacao.decision}
-                                </div>
-                            </div>
-                            
-                            <div class="card-section">
-                                <label>Comentários Técnicos</label>
-                                <p>${avaliacao.technical_justification}</p>
-                            </div>
-
-                            ${contactSection}
-                        </div>
-                    `;
-                    resultsContainer.innerHTML += cardHTML;
-                    delayIndex++;
-                }
-
-                if (Object.keys(data.resultados).length === 0) {
-                    resultsContainer.innerHTML += '<div class="status-message">Nenhum resultado recebido do processamento.</div>';
                 }
 
             } catch (error) {
@@ -667,9 +713,136 @@
                         </div>
                     </div>`;
             } finally {
-                // Volta ao normal habilitado para testar novo round
+                isProcessing = false;
+                // Volta ao normal habilitado para testar novo round (se der erro ou não, mas na prática removemos o submit button no sucesso)
                 btn.disabled = false;
                 btn.innerHTML = originalBtnText;
+            }
+        });
+
+        // ==========================
+        // RENDERIZAÇÃO DE RESULTADOS
+        // ==========================
+        function renderResults(resultados) {
+            const resultsContainer = document.getElementById('results-container');
+            resultsContainer.innerHTML = '<div class="results-header">Relatórios da Triagem</div>';
+
+            let delayIndex = 0;
+
+            for (const [fileName, avaliacao] of Object.entries(resultados)) {
+                const isApproved = String(avaliacao.decision).toLowerCase().includes('aprovado');
+                const cardClass = isApproved ? 'approved' : 'rejected';
+
+                // Tratamento seguro caso score_fit não seja numero ou venha quebrado
+                const fitScore = parseFloat(avaliacao.score_fit) || 0;
+                const scoreClass = fitScore >= 70 ? 'high' : 'low';
+
+                const iconSVG = isApproved
+                    ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--success)"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>'
+                    : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--danger)"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+
+                // Monta links de contato condicionalmente
+                let contactLinks = '';
+                if (avaliacao.github_url) {
+                    const ghUrl = avaliacao.github_url.startsWith('http') ? avaliacao.github_url : `https://${avaliacao.github_url}`;
+                    contactLinks += `<a href="${ghUrl}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>GitHub</a>`;
+                }
+                if (avaliacao.linkedin_url) {
+                    const liUrl = avaliacao.linkedin_url.startsWith('http') ? avaliacao.linkedin_url : `https://${avaliacao.linkedin_url}`;
+                    contactLinks += `<a href="${liUrl}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>LinkedIn</a>`;
+                }
+                if (avaliacao.email) {
+                    contactLinks += `<a href="mailto:${avaliacao.email}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>${avaliacao.email}</a>`;
+                }
+                if (avaliacao.phone) {
+                    contactLinks += `<a href="tel:${avaliacao.phone}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${avaliacao.phone}</a>`;
+                }
+
+                const contactSection = contactLinks
+                    ? `<div class="card-links">${contactLinks}</div>`
+                    : '';
+
+                const cardHTML = `
+                    <div class="card ${cardClass}" style="animation-delay: ${delayIndex * 0.1}s">
+                        <div class="card-top">
+                            <span class="card-title">${fileName}</span>
+                            <span class="badge ${scoreClass}">Match: ${fitScore}%</span>
+                        </div>
+                        
+                        <div class="card-section">
+                            <label>Veredito da IA</label>
+                            <div class="verdict-box">
+                                ${iconSVG}
+                                ${avaliacao.decision}
+                            </div>
+                        </div>
+                        
+                        <div class="card-section">
+                            <label>Comentários Técnicos</label>
+                            <p>${avaliacao.technical_justification}</p>
+                        </div>
+
+                        ${contactSection}
+                    </div>
+                `;
+                resultsContainer.innerHTML += cardHTML;
+                delayIndex++;
+            }
+
+            if (Object.keys(resultados).length === 0) {
+                resultsContainer.innerHTML += '<div class="status-message">Nenhum resultado recebido do processamento.</div>';
+            }
+        }
+
+        // ==========================
+        // LOCAL STORAGE & CLEAR LOGIC
+        // ==========================
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedJob = localStorage.getItem('ats_job_description');
+            const savedResults = localStorage.getItem('ats_results');
+
+            if (savedJob && savedResults) {
+                document.getElementById('job_description').value = savedJob;
+
+                try {
+                    const parsedResults = JSON.parse(savedResults);
+                    renderResults(parsedResults);
+
+                    document.getElementById('clear-btn').style.display = 'flex';
+                    document.getElementById('submit-btn').style.display = 'none';
+                } catch (e) {
+                    console.error("Erro ao carregar resultados salvos da memoria", e);
+                }
+            }
+        });
+
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            // Limpa memoria
+            localStorage.removeItem('ats_job_description');
+            localStorage.removeItem('ats_results');
+
+            // Limpa UI
+            document.getElementById('ats-form').reset();
+            document.getElementById('job_description').value = '';
+            document.getElementById('results-container').innerHTML = '';
+            fileList.innerHTML = '';
+
+            // Reseta botoes
+            document.getElementById('clear-btn').style.display = 'none';
+            document.getElementById('submit-btn').style.display = 'flex';
+            document.getElementById('submit-btn').disabled = true;
+        });
+
+        // ==========================
+        // ALERTA DE SAÍDA DE PÁGINA
+        // ==========================
+        window.addEventListener('beforeunload', function (e) {
+            if (isProcessing) {
+                // Cancela o fechamento (padrão em alguns navegadores)
+                e.preventDefault();
+                // O texto exato retornado pode ser ignorado por navegadores modernos,
+                // mas é necessário definir o returnValue para ativar o popup padrão.
+                e.returnValue = 'A análise de currículos ainda está em andamento. Se você sair, perderá o progresso. Deseja mesmo sair?';
             }
         });
     </script>
