@@ -103,13 +103,13 @@ class MatchingService:
             )
             final_results[candidate] = response.text
 
-        # Limpeza do JSON
+        # Clean the JSON
         import json
-        resultados_limpos = {}
-        for candidato, resposta_texto in final_results.items():
+        cleaned_results = {}
+        for candidate_key, response_text in final_results.items():
             try:
-                resultados_limpos[candidato] = json.loads(resposta_texto)
+                cleaned_results[candidate_key] = json.loads(response_text)
             except json.JSONDecodeError:
-                resultados_limpos[candidato] = {"erro": "Falha ao ler o veredito da IA", "texto_bruto": resposta_texto}
+                cleaned_results[candidate_key] = {"error": "Falha ao ler o veredito da IA", "texto_bruto": response_text}
 
-        yield {"status": "done", "resultados": resultados_limpos, "message": "Análises concluídas com sucesso!"}
+        yield {"status": "success", "results": cleaned_results, "message": "Análises concluídas com sucesso!"}

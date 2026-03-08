@@ -50,8 +50,8 @@ async def match_candidates(
 
     # persist on disk immediately
     for file in files:
-        caminho_completo = os.path.join(RAW_DIR, file.filename)
-        with open(caminho_completo, "wb") as f:
+        full_path = os.path.join(RAW_DIR, file.filename)
+        with open(full_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
 
     async def event_generator():
@@ -92,9 +92,9 @@ async def match_candidates(
                 yield f"data: {json.dumps(update)}\n\n"
                 
         except Exception as e:
-            print(f"❌ Erro no pipeline: {str(e)}")
+            print(f"❌ Error in pipeline: {str(e)}")
             error_msg = str(e)
             is_quota = "429" in error_msg or "quota" in error_msg.lower() or "exhausted" in error_msg.lower()
-            yield f"data: {json.dumps({'status': 'erro', 'message': error_msg, 'is_quota': is_quota})}\n\n"
+            yield f"data: {json.dumps({'status': 'error', 'message': error_msg, 'is_quota': is_quota})}\n\n"
             
     return StreamingResponse(event_generator(), media_type="text/event-stream")
