@@ -79,6 +79,11 @@ Basta dar um duplo clique (ou rodar no CMD) o arquivo:
 start.bat
 ```
 
+**Para Desligar e Limpar o Ambiente:**
+Se quiser derrubar o banco de dados (Docker) e limpar a memória física do seu HD gerada pelos PDFs (`data/raw`), rodar o script de destruição:
+- Mac/Linux: `./destroy.sh`
+- Windows: `destroy.bat`
+
 > *Se você preferir rodar manualmente:*
 > `docker-compose up -d` e depois `uvicorn src.api.app:app --reload --port 8000`
 
