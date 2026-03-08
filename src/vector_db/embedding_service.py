@@ -28,6 +28,7 @@ class EmbeddingService:
                 "id": chunk.chunk_id,
                 "values": vector.tolist(), # Convert numpy array to list for JSON compatibility
                 "metadata": {
+                    "session_id": chunk.session_id,
                     "file_name": chunk.file_name,
                     "text": chunk.text_content
                 }

@@ -2,7 +2,7 @@ from typing import List
 from .schemas import ResumeChunk
 
 
-def chunk_text(raw_text: str, file_name: str) -> List[ResumeChunk]:
+def chunk_text(raw_text: str, file_name: str, session_id: str) -> List[ResumeChunk]:
     """
     Slices the resume text based on headers in UPPERCASE letters.
     """
@@ -29,8 +29,9 @@ def chunk_text(raw_text: str, file_name: str) -> List[ResumeChunk]:
                 
                 # Validated Chunk
                 chunk = ResumeChunk(
+                    session_id=session_id,
                     file_name=file_name,
-                    chunk_id=f"{file_name[:-4]}_{current_section.replace(' ', '_')}",
+                    chunk_id=f"{session_id}_{file_name[:-4]}_{current_section.replace(' ', '_')}",
                     text_content=f"{current_section}:\n{combined_text}"
                 )
                 valid_chunks.append(chunk)
@@ -44,8 +45,9 @@ def chunk_text(raw_text: str, file_name: str) -> List[ResumeChunk]:
     if current_content:
         combined_text = " ".join(current_content)
         chunk = ResumeChunk(
+            session_id=session_id,
             file_name=file_name,
-            chunk_id=f"{file_name[:-4]}_{current_section.replace(' ', '_')}",
+            chunk_id=f"{session_id}_{file_name[:-4]}_{current_section.replace(' ', '_')}",
             text_content=f"{current_section}:\n{combined_text}"
         )
         valid_chunks.append(chunk)
