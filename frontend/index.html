@@ -626,6 +626,7 @@
 
             // Construir payload multipart
             const formData = new FormData();
+            formData.append('session_id', crypto.randomUUID());
             formData.append('job_description', document.getElementById('job_description').value);
 
             Array.from(fileInput.files).forEach(file => {

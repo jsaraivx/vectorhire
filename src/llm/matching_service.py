@@ -33,7 +33,7 @@ class MatchingService:
         self.embedding_service = EmbeddingService()
         self.db = VectorRepository()
 
-    def evaluate_candidates_for_job_stream(self, job_description: str):
+    def evaluate_candidates_for_job_stream(self, session_id: str, job_description: str):
         """
         Orchestrates RAG: Vectorizes job, searches database, and asks LLM to evaluate.
         Yields progress updates for SSE streaming.
@@ -48,7 +48,7 @@ class MatchingService:
 
         yield {"status": "info", "message": "Buscando fragmentos mais relevantes no banco de dados vetorial..."}
 
-        chunk_search = self.db.search_similar_chunks(jd_vector, 15)
+        chunk_search = self.db.search_similar_chunks(session_id, jd_vector, 15)
         unique_candidates = set([c.file_name for c in chunk_search])
         
         total_candidates = len(unique_candidates)
@@ -62,7 +62,7 @@ class MatchingService:
                 
             yield {"status": "progress", "message": f"🤖 Analisando candidato {i+1} de {total_candidates}: {nome_display}"}
 
-            candidate_chunks = self.db.get_chunk_file_by_name(candidate)
+            candidate_chunks = self.db.get_chunk_file_by_name(session_id, candidate)
 
             resume_context = f"\n\n".join(
                 [c.text_content for c in candidate_chunks]

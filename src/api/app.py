@@ -38,6 +38,7 @@ from fastapi.responses import StreamingResponse
 
 @app.post("/api/v1/match")
 async def match_candidates(
+    session_id: str = Form(...),
     job_description: str = Form(...), 
     files: list[UploadFile] = File(...)
 ):
@@ -46,7 +47,16 @@ async def match_candidates(
     Salva os PDFs no disco e executa o pipeline de IA emitindo stream SSE.
     """
     RAW_DIR = "data/raw"
+    PROCESSED_DIR = "data/processed"
+
+    # Clean up previous session files to prevent cross-contamination
+    if os.path.exists(RAW_DIR):
+        shutil.rmtree(RAW_DIR)
+    if os.path.exists(PROCESSED_DIR):
+        shutil.rmtree(PROCESSED_DIR)
+
     os.makedirs(RAW_DIR, exist_ok=True) 
+    os.makedirs(PROCESSED_DIR, exist_ok=True)
 
     # persist on disk immediately
     for file in files:
@@ -72,7 +82,7 @@ async def match_candidates(
                 file_path = os.path.join('data/processed', file_name)
                 with open(file_path, 'r', encoding='utf-8') as f:
                     resume_text = f.read()
-                refined_chunks.extend(chunk_text(resume_text, file_name))
+                refined_chunks.extend(chunk_text(resume_text, file_name, session_id))
                     
             yield f"data: {json.dumps({'status': 'info', 'message': 'Gerando Embeddings Vetoriais locais...'})}\n\n"
             
@@ -88,7 +98,7 @@ async def match_candidates(
             print("🧠 [2/3] Acionando o Motor RAG (Gemini) em Streaming...")
             matcher = MatchingService()
             
-            for update in matcher.evaluate_candidates_for_job_stream(job_description):
+            for update in matcher.evaluate_candidates_for_job_stream(session_id, job_description):
                 yield f"data: {json.dumps(update)}\n\n"
                 
         except Exception as e:

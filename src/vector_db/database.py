@@ -28,8 +28,10 @@ class ResumeChunkModel(Base):
     __tablename__ = 'resume_chunks'
 
     id = Column(String, primary_key=True)
+    session_id = Column(String, nullable=False, index=True)
     file_name = Column(String, nullable=False)
     text_content = Column(Text, nullable=False)
     embedding = Column(Vector(384))  # Matches all-MiniLM-L6-v2 dimensions
 
+Base.metadata.drop_all(engine) # Recreate schema cleanly for the new session_id column
 Base.metadata.create_all(engine)
