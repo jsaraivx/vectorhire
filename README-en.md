@@ -60,28 +60,29 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vectorhire
 GEMINI_API_KEY=your_key_here
 ```
 
-### 4. Spinning up the Vector Database
+### 4. Running the project automatically (Recommended)
 
-The project depends on a PostgreSQL container packaged with the `pgvector` extension. You can spin this up using the config file at the root:
+In the root of the project, there are ready-to-use scripts to spin up both the local database and the Backend intelligence in just 1 click:
 
+**For Mac and Linux:**
 ```bash
-docker-compose up -d
-```
-*(Make sure port 5432 is free on your computer).*
+# On the first run, grant execution permission:
+chmod +x start.sh
 
-The `pgvector` extension allows the execution of semantic similarity searches (Cosine) of giant dimensional arrays directly within SQL.
-
-### 5. Running the Backend Server (AI API)
-
-With the database up and the API configured, start the **FastAPI** server:
-
-```bash
-uvicorn src.api.app:app --reload --port 8000
+# To run (Spins up Docker and API):
+./start.sh
 ```
 
-If everything works, you will see a message like `Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)` in your terminal.
+**For Windows:**
+Just double-click (or run in CMD) the file:
+```cmd
+start.bat
+```
 
-### 6. Accessing the Frontend UI (ATS UI)
+> *If you prefer to run it manually:*
+> `docker-compose up -d` and then `uvicorn src.api.app:app --reload --port 8000`
+
+### 5. Accessing the Frontend UI (ATS UI)
 
 Unlike complex build systems, the Frontend was built in a completely decoupled and clean way using pure HTML, CSS, and JS. The Backend is already exposed with `CORSMiddleware` active.
 

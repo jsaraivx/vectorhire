@@ -60,28 +60,29 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vectorhire
 GEMINI_API_KEY=sua_chave_aqui
 ```
 
-### 4. Subindo o Banco Vetorial
+### 4. Executando o Projeto de Forma Automática (Recomendado)
 
-O projeto depende de um container PostgreSQL empacotado com a extensão `pgvector`. Você pode subir isso utilizando o arquivo de configuração da raiz:
+Na raiz do projeto existem scripts prontos para subir tanto o banco local quanto a inteligência do Backend em apenas 1 clique:
 
+**Para Mac e Linux:**
 ```bash
-docker-compose up -d
-```
-*(Certifique-se de que a porta 5432 está livre no seu computador).*
+# Na primeira vez, dê permissão de execução:
+chmod +x start.sh
 
-A extensão `pgvector` permite a execução de buscas por similaridade semântica (Cosseno) de arrays dimensionais gigantes diretamente com SQL.
-
-### 5. Executando o Servidor Backend (API Inteligente)
-
-Com o banco de pé e a API configurada, inicie o servidor **FastAPI**:
-
-```bash
-uvicorn src.api.app:app --reload --port 8000
+# Para rodar (Sobe o Docker e a API):
+./start.sh
 ```
 
-Se tudo der certo, você verá no terminal uma mensagem como `Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)`.
+**Para Windows:**
+Basta dar um duplo clique (ou rodar no CMD) o arquivo:
+```cmd
+start.bat
+```
 
-### 6. Acessando a Interface Frontend (ATS UI)
+> *Se você preferir rodar manualmente:*
+> `docker-compose up -d` e depois `uvicorn src.api.app:app --reload --port 8000`
+
+### 5. Acessando a Interface Frontend (ATS UI)
 
 Diferente de sistemas complexos de build, o Frontend foi construído de forma completamente desacoplada e limpa usando HTML, CSS e JS puros. O Backend já está exposto com `CORSMiddleware` liberado.
 
