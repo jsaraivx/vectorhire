@@ -1,54 +1,125 @@
 # VectorHire (AI-Powered ATS Pipeline)
 
-> **Status:** Funcional (MVP Completo) - Fase 3 Finalizada
+> **Status:** Funcional (Produto B2B Completo) - Processamento End-to-End validado.
 
-Um sistema de *Applicant Tracking System* (ATS) focado na análise semântica de currículos. Este projeto utiliza técnicas avançadas de **Data Engineering** e **AI Engineering (RAG)** para extrair, vetorizar e cruzar perfis de candidatos com descrições de vagas, utilizando Modelos de Linguagem (LLMs) para gerar justificativas de match.
+Um sistema de *Applicant Tracking System* (ATS) inteligente focado na análise semântica de currículos. Construído com técnicas avançadas de **Data Engineering** e **AI Engineering (RAG)**, o VectorHire extrai o texto de PDFs, vetoriza os dados, busca similaridade contra os requisitos de uma vaga e utiliza Modelos de Linguagem (LLMs) para decidir aprovação/reprovação de candidatos, além de extrair contatos úteis (GitHub, LinkedIn).
 
 ## Arquitetura e Tech Stack
 
-O projeto é dividido em um pipeline de ingestão assíncrona e um motor de decisão baseado em LLM Agentic Workflow.
+O projeto opera em um modelo Client-Server com um pipeline de ingestão Two-Step RAG (Retrieval-Augmented Generation):
 
-- **Linguagem Core:** Python 3.10+
-- **Extração de Dados:** PyMuPDF (Processamento de layouts complexos de PDFs)
-- **Validação e Parsing:** Pydantic (Structured Outputs)
-- **Armazenamento Vetorial:** PostgreSQL + pgvector (Vector Database para similaridade de cosseno)
-- **ORM:** SQLAlchemy
-- **Orquestração (Planejado):** Apache Airflow & Docker
+- **Backend / API:** FastAPI (Async API, lidando nativamente com `multipart/form-data`)
+- **Extração de Dados:** PyMuPDF (`fitz`) para OCR interno de PDFs.
+- **Processamento:** Semantic Chunking para fatiar o currículo sem perder contexto de ferramentas.
+- **Banco Vetorial:** PostgreSQL + extensão `pgvector`.
+- **ORM & Pattern:** SQLAlchemy implementando Repository Pattern.
 - **Modelos de IA:**
-  - *Embeddings:* Sentence Transformers (`all-MiniLM-L6-v2` Local)
-  - *Raciocínio:* Google Gemini (2.5 Flash) via API
+  - *Embeddings Locais:* `sentence-transformers/all-MiniLM-L6-v2`
+  - *LLM / Raciocínio:* Google Gemini 2.5 Flash via `google-generativeai`
+- **Output Estruturado:** Pydantic (Garantindo que a IA retorne um JSON exato)
+- **Frontend UI:** HTML5/CSS Vanilla com design SaaS Premium (Glassmorphism + Dark Mode), consumindo via Fetch API.
 
+---
 
+## Guia de Uso: Como rodar o projeto localmente
 
-## Roadmap do Projeto
+Siga o passo a passo abaixo para subir a aplicação por completo.
 
-### Fase 1: Fundação de Dados (Data Engineering)
-- [x] Configuração do ambiente e estrutura de diretórios (`src/`, `data/`).
-- [x] Motor de extração de texto bruto de PDFs de currículos (Camada Bronze).
-- [x] Implementação de chunking de texto focado na semântica do currículo.
-- [x] Validação de metadados usando `Pydantic` schemas.
+### 1. Requisitos do Sistema
+- Python 3.10 ou superior (Recomendo a versão 3.11)
+- Docker e Docker Compose (para subir o banco de dados)
+- Uma chave de API válida do [Google AI Studio (Gemini)](https://aistudio.google.com/)
 
-### Fase 2: Banco Vetorial e Embeddings (AI Engineering)
-- [x] Geração de vetores matemáticos para cada chunk de texto.
-- [x] Configuração do PostgreSQL com extensão pgvector.
-- [x] Schemas SQLAlchemy para persistência de embeddings e metadados (Camada Silver).
+### 2. Configuração do Ambiente e Dependências
 
-### Fase 3: Motor de Matching (Retrieval & LLM)
-- [x] Vetorização dinâmica da descrição da vaga (Job Description).
-- [x] Busca de similaridade (Top K) no PostgreSQL com pgvector.
-- [x] Agente LLM para cruzar requisitos obrigatórios vs. habilidades do candidato (Gemini 2.5 Flash).
-- [x] Geração de saída estruturada (Aceito/Recusado + Justificativa detalhada com Pydantic).
+Clone este repositório e crie um ambiente virtual:
 
-### Fase 4: Orquestração e Escalabilidade
-- [ ] Containerização da aplicação com Docker.
-- [ ] Refatoração das rotinas de extração para rodar como DAGs no Apache Airflow.
+```bash
+# Clone o repositório e entre na pasta
+git clone <URL_DO_REPO>
+cd vectorhire
 
-## Como rodar localmente (Setup Inicial)
+# Crie e ative o ambiente virtual
+python -m venv venv
+source venv/bin/activate  # No macOS/Linux
+# venv\Scripts\activate   # No Windows
 
-1. Clone este repositório.
-2. Crie um ambiente virtual: `python -m venv venv`
-3. Instale as dependências: `pip install -r requirements.txt`
-4. Crie um arquivo `.env` na raiz do projeto configurando suas credenciais de banco e a `GEMINI_API_KEY` (veja `.env.example`).
-5. Suba o banco de dados vetorial PostgreSQL com a extensão pgvector: `docker-compose up -d`
-6. Edite o final do arquivo `main.py` para escolher qual parte testar e execute: `python main.py`
-    - Você pode testar a ingestão dos PDFs ou testar diretamente o motor de RAG simulando as posições nas vagas alvo.
+# Instale os pacotes (inclui FastAPI, SQLAlchemy, transformers, google-generativeai, etc.)
+pip install -r requirements.txt
+```
+
+### 3. Configuração de Credenciais (`.env`)
+
+Crie um arquivo `.env` na raiz do projeto com base nas chaves usadas no código. O arquivo precisa conter:
+
+```env
+# Conexão com o Banco de Dados Local (Postgres + pgvector via Docker)
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vectorhire
+
+# Chave de API do Google Gemini
+GEMINI_API_KEY=sua_chave_aqui
+```
+
+### 4. Subindo o Banco Vetorial
+
+O projeto depende de um container PostgreSQL empacotado com a extensão `pgvector`. Você pode subir isso utilizando o arquivo de configuração da raiz:
+
+```bash
+docker-compose up -d
+```
+*(Certifique-se de que a porta 5432 está livre no seu computador).*
+
+A extensão `pgvector` permite a execução de buscas por similaridade semântica (Cosseno) de arrays dimensionais gigantes diretamente com SQL.
+
+### 5. Executando o Servidor Backend (API Inteligente)
+
+Com o banco de pé e a API configurada, inicie o servidor **FastAPI**:
+
+```bash
+uvicorn src.api.app:app --reload --port 8000
+```
+
+Se tudo der certo, você verá no terminal uma mensagem como `Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)`.
+
+### 6. Acessando a Interface Frontend (ATS UI)
+
+Diferente de sistemas complexos de build, o Frontend foi construído de forma completamente desacoplada e limpa usando HTML, CSS e JS puros. O Backend já está exposto com `CORSMiddleware` liberado.
+
+**Para interagir com o VectorHire:**
+1. Abra seu navegador (Chrome, Edge, Safari).
+2. Vá até a pasta `frontend/` deste projeto.
+3. Arraste ou dê duplo clique no arquivo `index.html`. Ele abrirá no navegador de imediato com a barra de endereço indicando `file:///.../frontend/index.html`.
+
+**Fluxo de Teste:**
+- No painel aberto, descreva uma vaga focada em "Engenharia de Dados GCP e Python" na caixa de texto.
+- Faça o drag & drop (ou clique para anexar) alguns currículos reais em PDF.
+- Clique em **"Analisar Candidatos"**.
+- Acompanhe no terminal a evolução do **Pipeline RAG** (Extração -> Chunking -> Embeddings -> Busca de Similaridade -> Parecer do Gemini).
+- Os cards renderização em segundos na UI com o Veredito da IA e os ícones de contato extraídos (GitHub, LinkedIn, Email).
+
+---
+
+## Cost Analysis: Previsão de Consumo da LLM (Gemini)
+
+Para cada **currículo selecionado** para análise (ou seja, os currículos que passaram no filtro matemático inicial do Postgres/pgvector), o VectorHire faz **uma requisição (1 request)** para a API do Google Gemini.
+
+### Estimativa para 1 Currículo Avaliado:
+- **Input (Prompt + Vaga + Currículo Completo):** ~1.000 a 1.500 tokens. (Depende do tamanho em páginas de um PDF comum).
+- **Output (Resposta Pydantic JSON):** ~150 a 250 tokens (Varia pelo tamanho da "Justificativa Técnica" gerada).
+- **Total de Tokens por Currículo:** **~1.300 a 1.750 tokens**.
+
+### Custos na Vida Real (Com o *Gemini 2.5 Flash*):
+Atualmente, a API do Gemini 2.5 Flash é **gratuita sob o Free Tier** (até 15 requisições por minuto e 1 milhão de tokens por minuto). Logo, para uso pessoal/portfólio, **o custo será $0.00**.
+
+> **Nota Econômica:** O RAG implementado no VectorHire economiza drasticamente o uso da API ao rodar a vetorização (`embeddings`) **localmente na sua máquina** pela biblioteca `sentence-transformers`. Só enviamos texto para a API rodar a inferência inteligente final nos candidatos que **já fizeram sentido** estatisticamente.
+
+---
+
+## Features Implementadas
+
+- [x] Ingestão baseada em upload de arquivos físicos via rota `/api/v1/match`.
+- [x] Limpeza e persistência dos binários em `data/raw`.
+- [x] Embeddings gerados de forma local (economia absurda de API LLM).
+- [x] Busca matemática de metadados (`LIMIT 15` fragmentos mais relevantes do Banco PgVector).
+- [x] Uso de *Pydantic Strict Schema* para o Agente Gemini nunca falhar no contrato JSON com o Frontend.
+- [x] UI Premium B2B responsiva p/ Desktop ou Mobile.
