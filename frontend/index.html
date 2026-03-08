@@ -534,6 +534,8 @@
     </div>
 
     <script>
+        let isProcessing = false;
+
         const fileInput = document.getElementById('resume_files');
         const fileList = document.getElementById('selected-files-list');
         const dropZone = document.getElementById('drop-zone');
@@ -606,6 +608,8 @@
         document.getElementById('ats-form').addEventListener('submit', async function (event) {
             event.preventDefault();
 
+            isProcessing = true;
+
             const btn = document.getElementById('submit-btn');
             const resultsContainer = document.getElementById('results-container');
             const originalBtnText = btn.innerHTML;
@@ -639,15 +643,45 @@
                     throw new Error(`Erro de rede ou backend falhou (${response.status})`);
                 }
 
-                const data = await response.json();
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let buffer = '';
 
-                // Salvar no LocalStorage
-                localStorage.setItem('ats_job_description', document.getElementById('job_description').value);
-                localStorage.setItem('ats_results', JSON.stringify(data.resultados));
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
 
-                renderResults(data.resultados);
+                    buffer += decoder.decode(value, { stream: true });
 
+                    let boundary = buffer.indexOf('\n\n');
+                    while (boundary !== -1) {
+                        const message = buffer.slice(0, boundary);
+                        buffer = buffer.slice(boundary + 2);
 
+                        const lines = message.split('\n');
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                const dataStr = line.substring(6).trim();
+                                if (dataStr) {
+                                    const parsedEvent = JSON.parse(dataStr);
+
+                                    if (parsedEvent.status === 'info' || parsedEvent.status === 'progress') {
+                                        document.querySelector('.status-message').innerText = parsedEvent.message;
+                                    } else if (parsedEvent.status === 'done') {
+                                        // Salvar no LocalStorage
+                                        localStorage.setItem('ats_job_description', document.getElementById('job_description').value);
+                                        localStorage.setItem('ats_results', JSON.stringify(parsedEvent.resultados));
+
+                                        renderResults(parsedEvent.resultados);
+                                    } else if (parsedEvent.status === 'erro') {
+                                        throw new Error(parsedEvent.message);
+                                    }
+                                }
+                            }
+                        }
+                        boundary = buffer.indexOf('\n\n');
+                    }
+                }
 
             } catch (error) {
                 console.error("Erro no ATS:", error);
@@ -660,6 +694,7 @@
                         </div>
                     </div>`;
             } finally {
+                isProcessing = false;
                 // Volta ao normal habilitado para testar novo round (se der erro ou não, mas na prática removemos o submit button no sucesso)
                 btn.disabled = false;
                 btn.innerHTML = originalBtnText;
@@ -777,6 +812,19 @@
             document.getElementById('clear-btn').style.display = 'none';
             document.getElementById('submit-btn').style.display = 'flex';
             document.getElementById('submit-btn').disabled = true;
+        });
+
+        // ==========================
+        // ALERTA DE SAÍDA DE PÁGINA
+        // ==========================
+        window.addEventListener('beforeunload', function (e) {
+            if (isProcessing) {
+                // Cancela o fechamento (padrão em alguns navegadores)
+                e.preventDefault();
+                // O texto exato retornado pode ser ignorado por navegadores modernos,
+                // mas é necessário definir o returnValue para ativar o popup padrão.
+                e.returnValue = 'A análise de currículos ainda está em andamento. Se você sair, perderá o progresso. Deseja mesmo sair?';
+            }
         });
     </script>
 </body>

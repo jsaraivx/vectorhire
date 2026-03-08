@@ -33,41 +33,40 @@ class MatchingService:
         self.embedding_service = EmbeddingService()
         self.db = VectorRepository()
 
-    def evaluate_candidates_for_job(self, job_description: str) -> str:
+    def evaluate_candidates_for_job_stream(self, job_description: str):
         """
         Orchestrates RAG: Vectorizes job, searches database, and asks LLM to evaluate.
+        Yields progress updates for SSE streaming.
         """
-        print("🤖 [1/4] Vectorizing Job Description...")
+        yield {"status": "info", "message": "Vetorizando a vaga (Job Description)..."}
 
         jd_vector = []
         final_results = {}
 
         emb_jd = self.embedding_service.model.encode(job_description)
-
         jd_vector = emb_jd.tolist()
 
-        print(job_description)
-
-        print("🔍 [2/4] Searching for most relevant resume fragments in Postgres...")
+        yield {"status": "info", "message": "Buscando fragmentos mais relevantes no banco de dados vetorial..."}
 
         chunk_search = self.db.search_similar_chunks(jd_vector, 15)
-
         unique_candidates = set([c.file_name for c in chunk_search])
-        print(f"🎯 Candidates found on radar: {unique_candidates}")
+        
+        total_candidates = len(unique_candidates)
+        yield {"status": "info", "message": f"{total_candidates} currículos aderentes encontrados. Iniciando inferência profunda..."}
 
-        # chunks_relevantes = self.db.search_similar_chunks(jd_vector, 5)
-
-        for candidate in unique_candidates:
-            print(f"Analyzing candidate {candidate}..")
-            print("🧠 [3/4] Building context for LLM...")
+        for i, candidate in enumerate(unique_candidates):
+            
+            nome_display = candidate.replace(".pdf", "").replace(".txt", "")
+            if len(nome_display) > 25:
+                nome_display = nome_display[:22] + "..."
+                
+            yield {"status": "progress", "message": f"🤖 Analisando candidato {i+1} de {total_candidates}: {nome_display}"}
 
             candidate_chunks = self.db.get_chunk_file_by_name(candidate)
 
             resume_context = f"\n\n".join(
                 [c.text_content for c in candidate_chunks]
             )
-            
-            print("⚡ [4/4] Consulting Gemini 2.5 Flash...")
             
             # The System Prompt defines the rules of the game
             prompt = f"""
@@ -104,4 +103,13 @@ class MatchingService:
             )
             final_results[candidate] = response.text
 
-        return final_results
+        # Limpeza do JSON
+        import json
+        resultados_limpos = {}
+        for candidato, resposta_texto in final_results.items():
+            try:
+                resultados_limpos[candidato] = json.loads(resposta_texto)
+            except json.JSONDecodeError:
+                resultados_limpos[candidato] = {"erro": "Falha ao ler o veredito da IA", "texto_bruto": resposta_texto}
+
+        yield {"status": "done", "resultados": resultados_limpos, "message": "Análises concluídas com sucesso!"}

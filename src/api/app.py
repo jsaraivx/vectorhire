@@ -34,6 +34,8 @@ def health_check():
         "message": "Motor RAG respirando."
     }
 
+from fastapi.responses import StreamingResponse
+
 @app.post("/api/v1/match")
 async def match_candidates(
     job_description: str = Form(...), 
@@ -41,69 +43,56 @@ async def match_candidates(
 ):
     """
     Recebe a vaga via texto e uma lista de currículos em PDF.
-    Salva os PDFs no disco e executa o pipeline de IA.
+    Salva os PDFs no disco e executa o pipeline de IA emitindo stream SSE.
     """
     RAW_DIR = "data/raw"
     os.makedirs(RAW_DIR, exist_ok=True) 
 
-    arquivos_salvos = []
-
-    # persist on disk
+    # persist on disk immediately
     for file in files:
         caminho_completo = os.path.join(RAW_DIR, file.filename)
-
-        with open(
-            caminho_completo,
-            "wb"
-        ) as f:
+        with open(caminho_completo, "wb") as f:
             shutil.copyfileobj(file.file, f)
+
+    async def event_generator():
+        try:
+            print("\n[1/3] Iniciando Pipeline de Ingestão via API Streaming...")
+            yield f"data: {json.dumps({'status': 'info', 'message': 'Extraindo texto bruto dos PDFs com OCR...'})}\n\n"
             
-        arquivos_salvos.append(file.filename)
+            # 1. Extração (Lê de data/raw e joga para data/processed)
+            extractor = PDFExtractor()
+            extractor.process_all()
+            
+            yield f"data: {json.dumps({'status': 'info', 'message': 'Quebrando currículos em fragmentos sintáticos...'})}\n\n"
+            
+            # 2. Chunking (Fatiamento)
+            processed_files = [f for f in os.listdir('data/processed') if f.endswith('.txt')]
+            refined_chunks = []
+            for file_name in processed_files:
+                file_path = os.path.join('data/processed', file_name)
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    resume_text = f.read()
+                refined_chunks.extend(chunk_text(resume_text, file_name))
+                    
+            yield f"data: {json.dumps({'status': 'info', 'message': 'Gerando Embeddings Vetoriais locais...'})}\n\n"
+            
+            # 3. Embeddings e Banco Vetorial
+            emb = EmbeddingService()
+            payload_data = emb.generate_embeddings(refined_chunks)
+            
+            yield f"data: {json.dumps({'status': 'info', 'message': 'Sincronizando fragmentos no PostgreSQL + pgvector...'})}\n\n"
+            
+            repo = VectorRepository()
+            repo.upsert_chunks(payload_data)
 
-    try:
-        print("\n[1/3] Iniciando Pipeline de Ingestão via API...")
-        
-        # 1. Extração (Lê de data/raw e joga para data/processed)
-        extractor = PDFExtractor()
-        extractor.process_all()
-        
-        # 2. Chunking (Fatiamento)
-        processed_files = [f for f in os.listdir('data/processed') if f.endswith('.txt')]
-        refined_chunks = []
-        for file_name in processed_files:
-            file_path = os.path.join('data/processed', file_name)
-            with open(file_path, 'r', encoding='utf-8') as f:
-                resume_text = f.read()
-            refined_chunks.extend(chunk_text(resume_text, file_name))
+            print("🧠 [2/3] Acionando o Motor RAG (Gemini) em Streaming...")
+            matcher = MatchingService()
+            
+            for update in matcher.evaluate_candidates_for_job_stream(job_description):
+                yield f"data: {json.dumps(update)}\n\n"
                 
-        # 3. Embeddings e Banco Vetorial
-        emb = EmbeddingService()
-        payload_data = emb.generate_embeddings(refined_chunks)
-        
-        repo = VectorRepository()
-        repo.upsert_chunks(payload_data)
-
-        print("🧠 [2/3] Acionando o Motor RAG (Gemini)...")
-        matcher = MatchingService()
-        
-        resultados_ia = matcher.evaluate_candidates_for_job(job_description) 
-
-        # Converte as strings do Gemini em dicionários reais do Python
-        resultados_limpos = {}
-        for candidato, resposta_texto in resultados_ia.items():
-            try:
-                resultados_limpos[candidato] = json.loads(resposta_texto)
-            except json.JSONDecodeError:
-                resultados_limpos[candidato] = {"erro": "Falha ao ler o veredito da IA", "texto_bruto": resposta_texto}
-
-        print("[3/3] Devolvendo resultados para o Frontend!")
-        
-        return {
-            "status": "sucesso",
-            "vaga_analisada": job_description,
-            "resultados": resultados_limpos
-        }
-    
-    except Exception as e:
-        print(f"❌ Erro no pipeline: {str(e)}")
-        return {"status": "erro", "detalhe": str(e)}
+        except Exception as e:
+            print(f"❌ Erro no pipeline: {str(e)}")
+            yield f"data: {json.dumps({'status': 'erro', 'message': str(e)})}\n\n"
+            
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
