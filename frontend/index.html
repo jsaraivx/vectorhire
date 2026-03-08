@@ -674,7 +674,26 @@
 
                                         renderResults(parsedEvent.resultados);
                                     } else if (parsedEvent.status === 'erro') {
-                                        throw new Error(parsedEvent.message);
+                                        if (parsedEvent.is_quota) {
+                                            const resultsContainer = document.getElementById('results-container');
+                                            resultsContainer.innerHTML = `
+                                                <div class="card rejected" style="border-color: #f59e0b; background: linear-gradient(to bottom right, rgba(245, 158, 11, 0.05), transparent);">
+                                                    <div class="card-section">
+                                                        <label style="color: #f59e0b; display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem;">
+                                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+                                                            Limite da API Atingido (Quota)
+                                                        </label>
+                                                        <p style="margin-top: 0.5rem;">O limite gratuito da API do Google Gemini (Free Tier) foi excedido ou as requisições foram enviadas muito rapidamente.</p>
+                                                        <p style="margin-top: 0.5rem; font-weight: 500; color: var(--text-primary);">Aguarde cerca de 1 minuto antes de tentar analisar novamente.</p>
+                                                        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem; word-break: break-all;">Detalhes Técnicos: ${parsedEvent.message}</p>
+                                                    </div>
+                                                </div>`;
+                                            document.getElementById('clear-btn').style.display = 'flex';
+                                            document.getElementById('submit-btn').style.display = 'none';
+                                            return;
+                                        } else {
+                                            throw new Error(parsedEvent.message);
+                                        }
                                     }
                                 }
                             }

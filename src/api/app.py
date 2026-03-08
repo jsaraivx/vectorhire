@@ -93,6 +93,8 @@ async def match_candidates(
                 
         except Exception as e:
             print(f"❌ Erro no pipeline: {str(e)}")
-            yield f"data: {json.dumps({'status': 'erro', 'message': str(e)})}\n\n"
+            error_msg = str(e)
+            is_quota = "429" in error_msg or "quota" in error_msg.lower() or "exhausted" in error_msg.lower()
+            yield f"data: {json.dumps({'status': 'erro', 'message': error_msg, 'is_quota': is_quota})}\n\n"
             
     return StreamingResponse(event_generator(), media_type="text/event-stream")
