@@ -2,6 +2,18 @@
 
 > **Status:** Funcional (Produto B2B Completo) - Processamento End-to-End validado.
 
+## Screenshots
+
+### UI - Dashboard Principal
+![Dashboard Principal](assets/vector_hire_first_page.jpg)
+
+### UI - Análise Técnica do Candidato
+![Análise do Candidato](assets/vectorhire_candidate_analysis.jpg)
+
+### Backend - Pipeline RAG (FastAPI + Gemini)
+![Pipeline Backend](assets/vectorhire_api.jpg)
+
+
 Um sistema de *Applicant Tracking System* (ATS) inteligente focado na análise semântica de currículos. Construído com técnicas avançadas de **Data Engineering** e **AI Engineering (RAG)**, o VectorHire extrai o texto de PDFs, vetoriza os dados, busca similaridade contra os requisitos de uma vaga e utiliza Modelos de Linguagem (LLMs) para decidir aprovação/reprovação de candidatos, além de extrair contatos úteis (GitHub, LinkedIn).
 
 ## Arquitetura e Tech Stack
